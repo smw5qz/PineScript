@@ -1,0 +1,45 @@
+//Stewart Walker
+//2-10-22
+
+strategy(title="HA Buy/Sell V3", shorttitle="HA B/S", overlay=true, default_qty_value = 50, initial_capital = 25000)
+
+start = input(timestamp('2021-12-27T00:00:00'), type=input.time)
+end = input(timestamp('2022-01-04T00:00:00'), type=input.time)
+
+time_cond = time >= start and time <= end
+
+MaPeriod = input (title="Moving Average Period?", type=input.integer, defval=55, minval=3, maxval=200, step=1)
+
+maOpen  = ema(open , MaPeriod)
+maHigh  = ema(high , MaPeriod)
+maLow   = ema(low  , MaPeriod)
+maClose = ema(close, MaPeriod)
+
+haClose = (maOpen+maHigh+maLow+maClose)/4
+haOpen = 0.0
+haOpen:= na(haOpen[1]) ? (maOpen[1]+maClose[1])/2 : (haOpen[1]+haClose[1])/2
+haHigh = max(maHigh, max(haClose, haOpen))
+haLow  = min(maLow , max(haClose, haOpen))
+
+plotcandle(haOpen, haHigh, haLow, haClose, title="heikin-Ashi smoothed", color=haOpen>haClose ? color.orange : color.blue)
+
+B0 = haClose    - haOpen
+B1 = haClose[1] - haOpen[1]
+B2 = haClose[2] - haOpen[2]
+BuyCondition = B0 > 0.0 and B1 > 0.0 and B2 > 0.0 and haClose > haClose[1] and haClose[1] > haClose[2]
+SellCondition= B0 < 0.0 and B1 < 0.0 and B2 < 0.0 and haClose < haClose[1] and haClose[1] < haClose[2]
+
+last_signal = 0
+Buy_final  = BuyCondition  and (nz(last_signal[1]) == 0 or nz(last_signal[1]) ==-1)
+Sell_final = SellCondition and (nz(last_signal[1]) == 0 or nz(last_signal[1]) == 1)
+//alertcondition(Buy_final , title="Buy Alarm" , message="Buy Signal!!!" )
+//alertcondition(Sell_final, title="Sell Alarm", message="Sell Signal!!!")
+last_signal := Buy_final ? 1 : Sell_final ? -1 : last_signal[1]
+
+strategy.entry("Buy", strategy.long, when=Buy_final and time_cond)
+strategy.exit("Buy", stop = 20, profit = 40)
+strategy.entry("Sell", strategy.short, when=Sell_final and time_cond)
+strategy.exit("Sell", stop = 20, profit = 40)
+
+plotshape(Buy_final , style=shape.labelup  , location=location.belowbar, color=color.blue, title="Buy label" , text="BUY" , textcolor=color.white)
+plotshape(Sell_final, style=shape.labeldown, location=location.abovebar, color=color.red , title="Sell label", text="SELL", textcolor=color.white)
